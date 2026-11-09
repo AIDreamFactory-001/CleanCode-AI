@@ -84,7 +84,7 @@ AI 可以很强，但它得在框里强。
 模型会越来越强，但越强的模型，越需要一副笼子。
 
 👉 立即在线体验 CleanCode AI 智能体（扣子平台）
-[点击这里](https://www.coze.cn/s/Nl7Dssr-aV0/)
+[点击实验](https://www.coze.cn/s/Nl7Dssr-aV0/)
 
 🛠️  **它是如何工作的？** 
 
@@ -120,7 +120,8 @@ AI 可以很强，但它得在框里强。
 
 终稿示例文件下载：[查看文档](https://gitee.com/song-jianhua8/cleancode-ai-agent/blob/master/%E7%BB%88%E7%A8%BF.txt)
 
-📚 ** 核心规范：** 
+📚 
+** 核心规范：** 
 
 重塑 AI 编程的工业底座
 
