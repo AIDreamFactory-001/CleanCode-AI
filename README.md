@@ -117,7 +117,7 @@ AI 可以很强，但它得在框里强。
 
 用户使用极其简单，核心模型为豆包 2.0pro，本示例编程总计模型耗时 323.7 秒，共计消耗 76963 token，同样的生产级结果，常规做法是多轮生成、人工逐条补，时间和 token 都花在返工上。
 
-初稿示例文件下载：[查看更多文档](../docs/guide.md)
+初稿示例文件下载：[查看更多文档](https://gitee.com/song-jianhua8/cleancode-ai-agent/blob/master/chugao.txt)
 
 终稿示例文件下载：[查看更多文档](../终稿.txt)
 
