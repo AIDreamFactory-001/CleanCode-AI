@@ -1,7 +1,6 @@
- **
 
-### CleanCode AI - 生产级 AI 编程规范系统
-** 
+### ### CleanCode AI - 生产级 AI 编程规范系统
+
 “我们不吹 AI 神话，我们只造能管住 AI 的代码生产线。”
 
 目标只有一个：让 AI 编程规范、透明、易读、易修；抑制幻觉，方便维护。
@@ -121,13 +120,15 @@ AI 可以很强，但它得在框里强。
 
 终稿示例文件下载：[查看文档](https://gitee.com/song-jianhua8/cleancode-ai-agent/blob/master/%E7%BB%88%E7%A8%BF.txt)
 
-📚 ** 核心规范：重塑 AI 编程的工业底座** 
+📚 ** 核心规范：** 
+
+重塑 AI 编程的工业底座
 
 没有规矩，不成方圆。本系统内置了严密的工业级规范：
 
-AI-SPA v1.0 标准模块化编程规范[查看文档](https://gitee.com/song-jianhua8/cleancode-ai-agent/blob/master/AI-SPA%20v1.0%20%E6%A0%87%E5%87%86%E6%A8%A1%E5%9D%97%E5%8C%96%E7%BC%96%E7%A8%8B%E8%A7%84%E8%8C%83.txt)
+AI-SPA v1.0 标准模块化编程规范：[查看文档](https://gitee.com/song-jianhua8/cleancode-ai-agent/blob/master/AI-SPA%20v1.0%20%E6%A0%87%E5%87%86%E6%A8%A1%E5%9D%97%E5%8C%96%E7%BC%96%E7%A8%8B%E8%A7%84%E8%8C%83.txt)
 
-AI-SPA v1.0 规则码标准[查看文档](https://gitee.com/song-jianhua8/cleancode-ai-agent/blob/master/AI-SPA%20v1.0%20%E8%A7%84%E5%88%99%E7%A0%81%E6%A0%87%E5%87%86..txt)
+AI-SPA v1.0 规则码标准：[查看文档](https://gitee.com/song-jianhua8/cleancode-ai-agent/blob/master/AI-SPA%20v1.0%20%E8%A7%84%E5%88%99%E7%A0%81%E6%A0%87%E5%87%86..txt)
 
 ⚠️  **版权与使用声明** 
 
