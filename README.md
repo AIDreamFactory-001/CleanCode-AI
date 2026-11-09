@@ -32,7 +32,7 @@ AI 可以很强，但它得在框里强。
 
 这套东西不是用来夸 AI 的，是用来管 AI 的。
 
-凭什么它肯守规矩？
+ **凭什么它肯守规矩？** 
 
 这是所有想管住 AI 的人最该问的一句话。
 
@@ -88,36 +88,38 @@ AI 可以很强，但它得在框里强。
 [点击这里](https://www.coze.cn/s/Nl7Dssr-aV0/)
 
 🛠️  **它是如何工作的？** 
+
 ![简单说明](tupian/jiandanshuoming.png)
 
  **第一步：提出需求** 
 
-tupian/shilixuqiu.png
+![输入图片说明](tupian/shilixuqiu.png)
 
  **第二步：编码生成与确认互动** 
 
-tupian/bianmahudong.png
+![输入图片说明](tupian/bianmahudong.png)
 
  **第三步：规范骨架生成** 
-tupian/diyigao.png
+
+![输入图片说明](tupian/diyigao.png)
 
  **第四步：追加所使用函数（占位服务分离）** 
 
-tupian/zhuijiahanshu.png
+![输入图片说明](tupian/zhuijiahanshu.png)
 
  **第五步：注入真实环境参数** 
 
-tupian/zhuijiaxianchangpeizhi.png
+![输入图片说明](tupian/zhuijiaxianchangpeizhi.png)
 
  **第六步：全量自检，生成最终完整代码** 
 
-[tupian/xiugai.png]
+![输入图片说明](tupian/xiugai.png)
 
 用户使用极其简单，核心模型为豆包 2.0pro，本示例编程总计模型耗时 323.7 秒，共计消耗 76963 token，同样的生产级结果，常规做法是多轮生成、人工逐条补，时间和 token 都花在返工上。
 
-初稿示例文件下载：chugao.txt
+初稿示例文件下载：[chugao.txt]
 
-终稿示例文件下载：终稿.txt
+终稿示例文件下载：[终稿.txt]
 
 📚 ** 核心规范：重塑 AI 编程的工业底座** 
 
