@@ -71,31 +71,30 @@ AI 可以很强，但它得在框里强。
 https://www.coze.cn/s/Nl7Dssr-aV0/
 
 🛠️ 它是如何工作的？
-https://tupian/jiandanshuoming.png
+[输入图片说明](tupian/jiandanshuoming.png)
 
 第一步：提出需求
 
-https://tupian/shilixuqiu.png
+tupian/shilixuqiu.png
 
 第二步：编码生成与确认互动
 
-https://tupian/bianmahudong.png
+tupian/bianmahudong.png
 
 第三步：规范骨架生成
-
-https://tupian/diyigao.png
+tupian/diyigao.png
 
 第四步：追加所使用函数（占位服务分离）
 
-https://tupian/zhuijiahanshu.png
+tupian/zhuijiahanshu.png
 
 第五步：注入真实环境参数
 
-https://tupian/zhuijiaxianchangpeizhi.png
+tupian/zhuijiaxianchangpeizhi.png
 
 第六步：全量自检，生成最终完整代码
 
-https://tupian/xiugai.png
+[tupian/xiugai.png]
 
 用户使用极其简单，核心模型为豆包 2.0pro，总计模型耗时 323.7 秒，共计消耗 76963 token。同样的生产级结果，常规做法是多轮生成、人工逐条补，时间和 token 都花在返工上。
 
