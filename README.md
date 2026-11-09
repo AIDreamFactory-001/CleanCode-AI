@@ -1,5 +1,7 @@
+
 CleanCode AI - 生产级 AI 编程规范系统
-“我们不制造 AI 神话，我们只造能管住AI 的代码生产线。”
+“我们不吹 AI 神话，我们只造能管住 AI 的代码生产线。”
+目标只有一个：让 AI 编程规范、透明、易读、易修；抑制幻觉，方便维护。
 
 为什么会有这个项目
 AI 写代码越来越快，但企业还是不敢让它碰生产。
@@ -58,53 +60,55 @@ AI 可以很强，但它得在框里强。
 发现小问题，欢迎提 Issue——只要不动五段式架构，我们快速修。
 
 我不是在卖一个更强的 AI。
-我是在给 AI 进生产，立一套它得守的规矩。
+我是在造一条能管住 AI 的代码生产线。
 
-模型未来会越来越强，但是越强的模型，越需要一套控制它的缰绳。
+模型会越来越强，但越强的模型，越需要一副笼子。
 
-
-👉 点击这里，立即在线体验 CleanCode AI 智能体（扣子平台）https://www.coze.cn/s/Nl7Dssr-aV0/
-
-
-第三部分：使用流程示例
+👉 点击这里，立即在线体验 CleanCode AI 智能体（扣子平台）
+https://www.coze.cn/s/Nl7Dssr-aV0/
 
 🛠️ 它是如何工作的？
+https://gitee.com/song-jianhua8/cleancode-ai-agent/raw/master/tupian/jiandanshuoming.png
 
-https://gitee.com/song-jianhua8/cleancode-ai-agent/blob/master/tupian/jiandanshuoming.png
 第一步：提出需求
-https://gitee.com/song-jianhua8/cleancode-ai-agent/blob/master/tupian/shilixuqiu.png
+
+https://gitee.com/song-jianhua8/cleancode-ai-agent/raw/master/tupian/shilixuqiu.png
+
 第二步：编码生成与确认互动
-https://gitee.com/song-jianhua8/cleancode-ai-agent/blob/master/tupian/bianmahudong.png
+
+https://gitee.com/song-jianhua8/cleancode-ai-agent/raw/master/tupian/bianmahudong.png
+
 第三步：规范骨架生成
-https://gitee.com/song-jianhua8/cleancode-ai-agent/blob/master/tupian/diyigao.png
+
+https://gitee.com/song-jianhua8/cleancode-ai-agent/raw/master/tupian/diyigao.png
+
 第四步：追加所使用函数（占位服务分离）
-https://gitee.com/song-jianhua8/cleancode-ai-agent/blob/master/tupian/zhuijiahanshu.png
+
+https://gitee.com/song-jianhua8/cleancode-ai-agent/raw/master/tupian/zhuijiahanshu.png
+
 第五步：注入真实环境参数
-https://gitee.com/song-jianhua8/cleancode-ai-agent/blob/master/tupian/zhuijiaxianchangpeizhi.png
+
+https://gitee.com/song-jianhua8/cleancode-ai-agent/raw/master/tupian/zhuijiaxianchangpeizhi.png
+
 第六步：全量自检，生成最终完整代码
-https://gitee.com/song-jianhua8/cleancode-ai-agent/blob/master/tupian/xiugai.png
 
-用户使用极其简单，核心模型为豆包2.0pro，总计模型耗时323.7秒，共计消耗76963token
+https://gitee.com/song-jianhua8/cleancode-ai-agent/raw/master/tupian/xiugai.png
 
-初稿示例文件下载：https://gitee.com/song-jianhua8/cleancode-ai-agent/blob/master/chugao.txt
+用户使用极其简单，核心模型为豆包 2.0pro，总计模型耗时 323.7 秒，共计消耗 76963 token。同样的生产级结果，常规做法是多轮生成、人工逐条补，时间和 token 都花在返工上。
 
-终稿示例文件下载：https://gitee.com/song-jianhua8/cleancode-ai-agent/blob/master/%E7%BB%88%E7%A8%BF.txt
+初稿示例文件下载：https://gitee.com/song-jianhua8/cleancode-ai-agent/raw/master/chugao.txt
 
-第四部分：核心规范库（白皮书与规则码）
+终稿示例文件下载：https://gitee.com/song-jianhua8/cleancode-ai-agent/raw/master/终稿.txt
 
 📚 核心规范：重塑 AI 编程的工业底座
 没有规矩，不成方圆。本系统内置了严密的工业级规范：
 
+点击下载：AI-SPA v1.0 标准模块化编程规范
 
-[点击下载：AI-SPA v1.0 标准模块化编程规范.docx]https://gitee.com/song-jianhua8/cleancode-ai-agent/blob/master/AI-SPA%20v1.0%20%E6%A0%87%E5%87%86%E6%A8%A1%E5%9D%97%E5%8C%96%E7%BC%96%E7%A8%8B%E8%A7%84%E8%8C%83.txt
-
-[点击下载：AI-SPA v1.0 规则码标准.docx]https://gitee.com/song-jianhua8/cleancode-ai-agent/blob/master/AI-SPA%20v1.0%20%E8%A7%84%E5%88%99%E7%A0%81%E6%A0%87%E5%87%86..txt
-
-
-第五部分：坦诚声明与开源期许
+点击下载：AI-SPA v1.0 规则码标准
 
 ⚠️ 版权与使用声明
-本项目及配套的《AI-SPA 规范》、《9位规则码》等文档，目前采用 “保留所有权利 (All Rights Reserved)” 及 署名-非商业性使用 (CC BY-NC) 双重授权模式。
+本项目及配套的《AI-SPA 规范》《9位规则码》等文档，目前采用“保留所有权利（All Rights Reserved）”及“署名—非商业性使用（CC BY-NC）”双重授权模式。
 
 欢迎体验与交流：我们非常欢迎所有开发者、架构师体验我们的智能体，阅读我们的规范文档，并给出宝贵的意见。
 
