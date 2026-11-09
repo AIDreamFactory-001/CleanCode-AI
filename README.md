@@ -119,7 +119,7 @@ AI 可以很强，但它得在框里强。
 
 初稿示例文件下载：[查看更多文档](https://gitee.com/song-jianhua8/cleancode-ai-agent/blob/master/chugao.txt)
 
-终稿示例文件下载：[查看更多文档](../终稿.txt)
+终稿示例文件下载：[查看更多文档](https://gitee.com/song-jianhua8/cleancode-ai-agent/blob/master/%E7%BB%88%E7%A8%BF.txt)
 
 📚 ** 核心规范：重塑 AI 编程的工业底座** 
 
