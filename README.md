@@ -1,4 +1,3 @@
-
 CleanCode AI - 生产级 AI 编程规范系统
 “我们不吹 AI 神话，我们只造能管住 AI 的代码生产线。”
 目标只有一个：让 AI 编程规范、透明、易读、易修；抑制幻觉，方便维护。
@@ -51,6 +50,10 @@ AI 可以很强，但它得在框里强。
 七条需求，逐条落位，一条没漏。
 事务回滚、Lua 防误删、优雅停机、脱敏，全是按规矩长出来的，不是碰巧。
 
+一次完整装配：323.7 秒，76963 token，七条需求一次落位，零返工。
+同样的生产级结果，常规做法是多轮生成、人工逐条补，时间和 token 都花在返工上。
+我们不比谁吐字快，我们比谁一次到位。
+
 这件事的意义不在“豆包也能写”，在于：模型换谁，规矩都在那儿，交付的下限就稳在那儿。
 我们不赌模型，我们赌规矩。
 
@@ -68,44 +71,44 @@ AI 可以很强，但它得在框里强。
 https://www.coze.cn/s/Nl7Dssr-aV0/
 
 🛠️ 它是如何工作的？
-https://gitee.com/song-jianhua8/cleancode-ai-agent/raw/master/tupian/jiandanshuoming.png
+https://tupian/jiandanshuoming.png
 
 第一步：提出需求
 
-https://gitee.com/song-jianhua8/cleancode-ai-agent/raw/master/tupian/shilixuqiu.png
+https://tupian/shilixuqiu.png
 
 第二步：编码生成与确认互动
 
-https://gitee.com/song-jianhua8/cleancode-ai-agent/raw/master/tupian/bianmahudong.png
+https://tupian/bianmahudong.png
 
 第三步：规范骨架生成
 
-https://gitee.com/song-jianhua8/cleancode-ai-agent/raw/master/tupian/diyigao.png
+https://tupian/diyigao.png
 
 第四步：追加所使用函数（占位服务分离）
 
-https://gitee.com/song-jianhua8/cleancode-ai-agent/raw/master/tupian/zhuijiahanshu.png
+https://tupian/zhuijiahanshu.png
 
 第五步：注入真实环境参数
 
-https://gitee.com/song-jianhua8/cleancode-ai-agent/raw/master/tupian/zhuijiaxianchangpeizhi.png
+https://tupian/zhuijiaxianchangpeizhi.png
 
 第六步：全量自检，生成最终完整代码
 
-https://gitee.com/song-jianhua8/cleancode-ai-agent/raw/master/tupian/xiugai.png
+https://tupian/xiugai.png
 
 用户使用极其简单，核心模型为豆包 2.0pro，总计模型耗时 323.7 秒，共计消耗 76963 token。同样的生产级结果，常规做法是多轮生成、人工逐条补，时间和 token 都花在返工上。
 
-初稿示例文件下载：https://gitee.com/song-jianhua8/cleancode-ai-agent/raw/master/chugao.txt
+初稿示例文件下载：chugao.txt
 
-终稿示例文件下载：https://gitee.com/song-jianhua8/cleancode-ai-agent/raw/master/终稿.txt
+终稿示例文件下载：终稿.txt
 
 📚 核心规范：重塑 AI 编程的工业底座
 没有规矩，不成方圆。本系统内置了严密的工业级规范：
 
-点击下载：AI-SPA v1.0 标准模块化编程规范
+AI-SPA v1.0 标准模块化编程规范
 
-点击下载：AI-SPA v1.0 规则码标准
+AI-SPA v1.0 规则码标准
 
 ⚠️ 版权与使用声明
 本项目及配套的《AI-SPA 规范》《9位规则码》等文档，目前采用“保留所有权利（All Rights Reserved）”及“署名—非商业性使用（CC BY-NC）”双重授权模式。
@@ -118,3 +121,4 @@ https://gitee.com/song-jianhua8/cleancode-ai-agent/raw/master/tupian/xiugai.png
 
 我不是在推销一款全能的 AI，我是在提供一条让 AI 走向生产环境的自动化车间。
 如果你也受够了给 AI 擦屁股，欢迎点个 Star（收藏），或者直接体验我们的智能体。让我们把 AI 编程，从“靠运气”变成“靠标准”！
+
