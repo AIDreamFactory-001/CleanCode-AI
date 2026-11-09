@@ -1,5 +1,5 @@
 
-### ### CleanCode AI - 生产级 AI 编程规范系统
+### CleanCode AI - 生产级 AI 编程规范系统
 
 “我们不吹 AI 神话，我们只造能管住 AI 的代码生产线。”
 
