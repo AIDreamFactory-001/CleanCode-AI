@@ -117,16 +117,17 @@ AI 可以很强，但它得在框里强。
 
 用户使用极其简单，核心模型为豆包 2.0pro，本示例编程总计模型耗时 323.7 秒，共计消耗 76963 token，同样的生产级结果，常规做法是多轮生成、人工逐条补，时间和 token 都花在返工上。
 
-初稿示例文件下载：[查看更多文档](https://gitee.com/song-jianhua8/cleancode-ai-agent/blob/master/chugao.txt)
+初稿示例文件下载：[查看文档](https://gitee.com/song-jianhua8/cleancode-ai-agent/blob/master/chugao.txt)
 
-终稿示例文件下载：[查看更多文档](https://gitee.com/song-jianhua8/cleancode-ai-agent/blob/master/%E7%BB%88%E7%A8%BF.txt)
+终稿示例文件下载：[查看文档](https://gitee.com/song-jianhua8/cleancode-ai-agent/blob/master/%E7%BB%88%E7%A8%BF.txt)
 
 📚 ** 核心规范：重塑 AI 编程的工业底座** 
 
 没有规矩，不成方圆。本系统内置了严密的工业级规范：
 
-AI-SPA v1.0 标准模块化编程规范[查看更多文档](https://gitee.com/song-jianhua8/cleancode-ai-agent/blob/master/AI-SPA%20v1.0%20%E6%A0%87%E5%87%86%E6%A8%A1%E5%9D%97%E5%8C%96%E7%BC%96%E7%A8%8B%E8%A7%84%E8%8C%83.txt)
-AI-SPA v1.0 规则码标准[查看更多文档](
+AI-SPA v1.0 标准模块化编程规范[查看文档](https://gitee.com/song-jianhua8/cleancode-ai-agent/blob/master/AI-SPA%20v1.0%20%E6%A0%87%E5%87%86%E6%A8%A1%E5%9D%97%E5%8C%96%E7%BC%96%E7%A8%8B%E8%A7%84%E8%8C%83.txt)
+
+AI-SPA v1.0 规则码标准[查看文档](https://gitee.com/song-jianhua8/cleancode-ai-agent/blob/master/AI-SPA%20v1.0%20%E8%A7%84%E5%88%99%E7%A0%81%E6%A0%87%E5%87%86..txt)
 
 ⚠️  **版权与使用声明** 
 
