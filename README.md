@@ -125,9 +125,8 @@ AI 可以很强，但它得在框里强。
 
 没有规矩，不成方圆。本系统内置了严密的工业级规范：
 
-AI-SPA v1.0 标准模块化编程规范
-
-AI-SPA v1.0 规则码标准
+AI-SPA v1.0 标准模块化编程规范[查看更多文档](https://gitee.com/song-jianhua8/cleancode-ai-agent/blob/master/AI-SPA%20v1.0%20%E6%A0%87%E5%87%86%E6%A8%A1%E5%9D%97%E5%8C%96%E7%BC%96%E7%A8%8B%E8%A7%84%E8%8C%83.txt)
+AI-SPA v1.0 规则码标准[查看更多文档](
 
 ⚠️  **版权与使用声明** 
 
