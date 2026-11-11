@@ -1,0 +1,909 @@
+// 已完成 AI-SPA 标准装配与全量 Bug 修复
+// AI-SPA v1.0 规范生成
+// 规则码：0.1.0.9.0.4.3.0.0
+// 契约版本：v1.0
+
+import express, { Request, Response, NextFunction, Router } from 'express';
+const router: Router = express.Router();
+import mysql, { Pool, PoolConnection, ResultSetHeader } from 'mysql2/promise';
+import Redis from 'ioredis';
+
+// ===================== 类型定义 =====================
+declare global {
+  namespace Express {
+    interface Request {
+      ctx: {
+        temp: {
+          success: boolean;
+          fail_reason: string | null;
+          logInfo: any;
+          loginUserId?: string | null;
+        };
+        shared: Record<string, any>;
+        deadline: number;
+        requestId: string;
+        userId?: string;
+        ip: string;
+      };
+    }
+  }
+}
+
+type Transaction = { id: string; connection: PoolConnection };
+type StandardResult<T = any> = { success: true; data: T } | { success: false; error: string };
+type ValidationRules = Record<string, { required: boolean; type: string; min?: number; max?: number }>;
+type SeckillRequest = {
+  productId: string;
+  quantity: number;
+  userId: string;
+}
+
+// ===================== 环境配置 =====================
+// MySQL连接池初始化（生产级参数）
+const mysqlPool: Pool = mysql.createPool({
+  host: '10.0.0.5',
+  port: 3306,
+  user: 'root',
+  password: 'SecKill@2024',
+  database: 'seckill_db',
+  connectionLimit: 100,
+  waitForConnections: true,
+  queueLimit: 200,
+  acquireTimeout: 3000,
+  connectTimeout: 3000,
+  timeout: 2000,
+  charset: 'utf8mb4',
+  timezone: '+08:00'
+});
+
+// Redis客户端初始化（生产级参数）
+const redis = new Redis({
+  host: '10.0.0.6',
+  port: 6379,
+  password: 'Redis@2024',
+  db: 0,
+  enableReadyCheck: true,
+  maxRetriesPerRequest: 2,
+  connectTimeout: 2000,
+  commandTimeout: 1000,
+  lazyConnect: false,
+  enableOfflineQueue: true,
+  retryDelayOnFailover: 100,
+  reconnectOnError: (err: Error) => {
+    const targetErrors = ['READONLY', 'ETIMEDOUT', 'ECONNRESET'];
+    return targetErrors.some(code => err.message.includes(code));
+  }
+});
+
+// 全局常量定义
+export const ERROR_CODE = {
+  SUCCESS: '0000',
+  PARAM_INVALID: 'E001',
+  INTERNAL_ERROR: 'E999',
+  TIMEOUT: 'E005',
+  LOCK_FAIL: 'E006',
+  STOCK_DEDUCT_FAIL: 'E201',
+  PRODUCT_NOT_FOUND: 'E202',
+  ORDER_CREATE_FAIL: 'E203'
+} as const;
+
+export const ORDER_STATUS = {
+  UNPAID: 'UNPAID',
+  PAID: 'PAID',
+  CANCELLED: 'CANCELLED'
+} as const;
+
+export const CACHE_TTL = {
+  SHORT: 60,
+  DEFAULT: 300,
+  LONG: 86400
+} as const;
+
+export type ErrorCode = typeof ERROR_CODE[keyof typeof ERROR_CODE];
+export type OrderStatus = typeof ORDER_STATUS[keyof typeof ORDER_STATUS];
+export type CacheTtl = typeof CACHE_TTL[keyof typeof CACHE_TTL];
+
+const LIGHT = false;
+const HEAVY = true;
+// 超时: 1500ms（框架注入 ctx.deadline）
+const REQUEST_TIMEOUT = 1500;
+
+// 连接健康检查（启动时自动执行）
+async function initHealthCheck(): Promise<void> {
+  try {
+    await mysqlPool.getConnection().then(conn => conn.release());
+    console.log('[INIT] MySQL连接池初始化成功');
+    await redis.ping();
+    console.log('[INIT] Redis连接初始化成功');
+  } catch (err) {
+    console.error('[INIT] 依赖服务连接失败:', (err as Error).message);
+    process.exit(1);
+  }
+}
+initHealthCheck();
+
+router.post('/api/v1/seckill',
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const ctx = req.ctx;
+    let transaction: Transaction | null = null;
+    let lockId: string | null = null;
+    let productIdSnapshot: string = '';
+    let quantitySnapshot: number = 0;
+    let userIdSnapshot: string = '';
+    let idempotentKey: string = '';
+
+    // ===== Stage 1: 初始化上下文 =====
+    ctx.temp = ctx.temp || {
+      success: true,
+      fail_reason: null,
+      logInfo: null,
+      loginUserId: null
+    };
+    ctx.shared = ctx.shared || {};
+    ctx.deadline = Date.now() + REQUEST_TIMEOUT;
+    ctx.requestId = ctx.requestId || `req_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+    ctx.ip = (req.headers['x-forwarded-for'] as string || req.socket.remoteAddress || '0.0.0.0').split(',')[0].trim();
+
+    try {
+      // ===== Stage 2: 前置校验与合规检查 =====
+      const body = req.body as unknown as Record<string, unknown>;
+      if (!body || typeof body !== 'object' || Array.isArray(body)) {
+        res.status(400).json({
+          code: ERROR_CODE.PARAM_INVALID,
+          msg: '请求参数错误',
+          data: null,
+          detail: null
+        });
+        return;
+      }
+
+      const validationRules: ValidationRules = {
+        productId: { required: true, type: 'string', min: 1 },
+        quantity: { required: true, type: 'number', min: 1, max: 10 },
+        userId: { required: true, type: 'string', min: 1 }
+      } as const;
+
+      const validateResult = await ValidateParams(body, validationRules);
+      if (!validateResult.success) {
+        const errors = validateResult.data?.errors as string[] || [];
+        res.status(400).json({
+          code: ERROR_CODE.PARAM_INVALID,
+          msg: `参数校验失败: ${errors.join(', ')}`,
+          data: null,
+          detail: null
+        });
+        return;
+      }
+
+      const validated = validateResult.data?.validated as SeckillRequest;
+      const productId = validated.productId;
+      const quantity = validated.quantity;
+      const userId = validated.userId;
+      
+      productIdSnapshot = productId;
+      quantitySnapshot = quantity;
+      userIdSnapshot = userId;
+      ctx.temp.loginUserId = userId;
+
+      // Token鉴权
+      const token = req.headers.authorization?.replace('Bearer ', '');
+      if (!token || typeof token !== 'string' || token.length < 10) {
+        res.status(401).json({
+          code: ERROR_CODE.PARAM_INVALID,
+          msg: '请先登录',
+          data: null,
+          detail: null
+        });
+        return;
+      }
+
+      if (checkTimeout(ctx)) throw new Error('TIMEOUT');
+
+      const tokenResult = await CacheGet(`token:${token}`);
+      if (!tokenResult.success || !tokenResult.data) {
+        res.status(401).json({
+          code: ERROR_CODE.PARAM_INVALID,
+          msg: '登录已过期，请重新登录',
+          data: null,
+          detail: null
+        });
+        return;
+      }
+
+      const tokenData = tokenResult.data as Record<string, unknown>;
+      if (tokenData.userId !== userId) {
+        res.status(403).json({
+          code: ERROR_CODE.PARAM_INVALID,
+          msg: '身份验证失败',
+          data: null,
+          detail: null
+        });
+        return;
+      }
+
+      // 幂等检查：用户+商品+当前分钟为幂等键，防止重复下单
+      const currentMinute = Math.floor(Date.now() / 60000);
+      idempotentKey = `seckill:${userId}:${productId}:${currentMinute}`;
+      ctx.shared.idempotentKey = idempotentKey;
+
+      const idemResult = await IdempotentCheck(idempotentKey, 3600, true);
+      if (!idemResult.success) {
+        res.status(500).json({
+          code: ERROR_CODE.INTERNAL_ERROR,
+          msg: '服务器繁忙，请稍后再试',
+          data: null,
+          detail: null
+        });
+        return;
+      }
+      if (!idemResult.data?.is_first) {
+        res.status(200).json({
+          code: ERROR_CODE.SUCCESS,
+          msg: '您已提交过抢购请求，请勿重复操作',
+          data: null,
+          detail: null
+        });
+        return;
+      }
+
+      // ===== Stage 3: 核心业务执行 =====
+      // 获取分布式锁：用户级限流，防止黄牛脚本，锁过期5秒
+      if (checkTimeout(ctx)) throw new Error('TIMEOUT');
+
+      const userLockKey = `seckill:lock:user:${userId}`;
+      const userLockResult = await LockAcquire(userLockKey, 5, 1000, false);
+      if (!userLockResult.success || !userLockResult.data?.locked) {
+        res.status(429).json({
+          code: ERROR_CODE.LOCK_FAIL,
+          msg: '操作过于频繁，请稍后再试',
+          data: null,
+          detail: null
+        });
+        return;
+      }
+      lockId = userLockResult.data.lockId;
+      ctx.shared.lockKey = userLockKey;
+      ctx.shared.lockId = lockId;
+
+      // 开启事务
+      if (checkTimeout(ctx)) throw new Error('TIMEOUT');
+
+      const txResult = await BeginTransaction();
+      if (!txResult.success) {
+        ctx.temp.success = false;
+        ctx.temp.fail_reason = txResult.error;
+        throw new Error('TX_BEGIN_FAILED');
+      }
+      transaction = txResult.data;
+      ctx.shared.transaction = transaction;
+
+      // 绑定补偿逻辑（逆序执行）
+      const orderNo = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+      await CompensateBind(ctx, 'revert_order', async () => {
+        await DbExecute('orders', 'delete',
+          {},
+          { order_no: orderNo, user_id: userIdSnapshot },
+          { transaction }
+        );
+      });
+      await CompensateBind(ctx, 'revert_stock', async () => {
+        await DbExecute('products', 'update',
+          { stock: () => `stock + ${quantitySnapshot}` },
+          { id: productIdSnapshot },
+          { transaction }
+        );
+      });
+
+      // 扣减库存（乐观锁防止超卖）
+      if (checkTimeout(ctx)) throw new Error('TIMEOUT');
+
+      const stockDeductResult = await Retry(async () => {
+        const productResult = await DbQuery('products', 
+          { id: productId, status: 'ON_SALE' },
+          { transaction, lock: 'FOR UPDATE' }
+        );
+        if (!productResult.success || !productResult.data?.length) {
+          throw new Error('PRODUCT_NOT_FOUND');
+        }
+        const product = productResult.data[0] as Record<string, unknown>;
+        const currentStock = product.stock as number;
+        if (currentStock < quantity) {
+          throw new Error('INSUFFICIENT_STOCK');
+        }
+        return await DbExecute('products', 'update',
+          { stock: () => `stock - ${quantity}` },
+          { id: productId, stock: currentStock },
+          { transaction }
+        );
+      }, { maxRetries: 3, backoffFactor: 1.5, initialDelay: 100 });
+
+      if (!stockDeductResult.success || stockDeductResult.data?.affectedRows === 0) {
+        ctx.temp.success = false;
+        ctx.temp.fail_reason = '库存不足或扣减失败';
+        throw new Error('STOCK_DEDUCT_FAIL');
+      }
+
+      // 生成订单
+      if (checkTimeout(ctx)) throw new Error('TIMEOUT');
+
+      const orderCreateResult = await DbExecute('orders', 'insert',
+        {
+          order_no: orderNo,
+          user_id: userId,
+          product_id: productId,
+          quantity,
+          status: ORDER_STATUS.UNPAID,
+          create_time: new Date()
+        },
+        {},
+        { transaction }
+      );
+
+      if (!orderCreateResult.success || orderCreateResult.data?.affectedRows === 0) {
+        ctx.temp.success = false;
+        ctx.temp.fail_reason = '订单创建失败';
+        throw new Error('ORDER_CREATE_FAIL');
+      }
+
+      // ===== Stage 4: 后置归集与资源收尾 =====
+      // 提交事务
+      if (checkTimeout(ctx)) throw new Error('TIMEOUT');
+
+      const commitResult = await CommitTransaction(transaction);
+      if (!commitResult.success) {
+        ctx.temp.success = false;
+        ctx.temp.fail_reason = commitResult.error;
+        throw new Error('COMMIT_FAILED');
+      }
+      transaction = null;
+
+      // 释放锁
+      if (lockId) {
+        const lockKey = ctx.shared.lockKey as string;
+        await LockRelease(lockKey, lockId);
+        lockId = null;
+      }
+      ctx.shared.compensateStack = [];
+
+      // 幂等确认
+      await IdempotentConfirm(idempotentKey);
+
+      // 记录日志
+      const logUserId = ctx.userId || ctx.temp.loginUserId;
+      ctx.temp.logInfo = {
+        action: 'seckill',
+        productId,
+        quantity,
+        userId,
+        orderNo
+      };
+      await Log(ctx.temp.logInfo, logUserId, 'seckill', 'INFO', ctx.requestId, ctx.ip);
+
+      // ===== Stage 5: 统一契约响应 =====
+      const responseData = { orderNo, productId, quantity, status: 'SUCCESS' };
+      const jsonResult = await SafeJsonStringify(responseData, false);
+      if (!jsonResult.success) {
+        await LogError('JSON序列化失败: ' + jsonResult.error, logUserId, 'response', 'ERROR', ctx.requestId, ctx.ip);
+      }
+
+      res.status(200).json({
+        code: ERROR_CODE.SUCCESS,
+        msg: '抢购成功，请尽快支付',
+        data: responseData,
+        detail: null
+      });
+
+    } catch (err) {
+      ctx.temp.success = false;
+      const originalErr = err as Error;
+      if (!ctx.temp.fail_reason) {
+        ctx.temp.fail_reason = originalErr.message;
+      }
+
+      // 异常清理（保证资源释放）
+      if (!LIGHT) {
+        const lockKey = ctx.shared.lockKey as string;
+        if (transaction) {
+          try {
+            await RollbackTransaction(transaction);
+            transaction = null;
+          } catch (rollbackErr) {
+            const logUserId = ctx.userId || ctx.temp.loginUserId;
+            await LogError('事务回滚失败: ' + (rollbackErr as Error).message,
+              logUserId, 'seckill', 'FATAL', ctx.requestId, ctx.ip);
+          }
+        }
+        if (HEAVY && ctx.shared?.compensateStack?.length > 0) {
+          const compensateResult = await CompensateRun(ctx);
+          if (!compensateResult.success) {
+            const logUserId = ctx.userId || ctx.temp.loginUserId;
+            await LogError('补偿执行失败: ' + compensateResult.error,
+              logUserId, 'seckill', 'FATAL', ctx.requestId, ctx.ip);
+          }
+        }
+        if (lockId && lockKey) {
+          try {
+            await LockRelease(lockKey, lockId);
+            lockId = null;
+          } catch (lockErr) {
+            const logUserId = ctx.userId || ctx.temp.loginUserId;
+            await LogError('锁释放失败: ' + (lockErr as Error).message,
+              logUserId, 'seckill', 'WARNING', ctx.requestId, ctx.ip);
+          }
+        }
+      }
+
+      // 错误日志
+      const logUserId = ctx.userId || ctx.temp.loginUserId;
+      await LogError(`${originalErr.message} | ${ctx.temp.fail_reason}`, logUserId, 'seckill', 'ERROR', ctx.requestId, ctx.ip);
+
+      // 错误响应（生产脱敏）
+      let errorCode: string = ERROR_CODE.INTERNAL_ERROR;
+      let statusCode: number = 500;
+      let errorMsg = '服务器繁忙，请稍后再试';
+      const errMsg = originalErr.message;
+
+      if (errMsg === 'TIMEOUT') {
+        errorCode = ERROR_CODE.TIMEOUT;
+        statusCode = 504;
+        errorMsg = '请求超时，请稍后重试';
+      } else if (errMsg === 'INSUFFICIENT_STOCK') {
+        errorCode = ERROR_CODE.STOCK_DEDUCT_FAIL;
+        statusCode = 400;
+        errorMsg = '商品库存不足';
+      } else if (errMsg === 'PRODUCT_NOT_FOUND') {
+        errorCode = ERROR_CODE.PRODUCT_NOT_FOUND;
+        statusCode = 404;
+        errorMsg = '商品不存在或已下架';
+      } else if (errMsg === 'ORDER_CREATE_FAIL') {
+        errorCode = ERROR_CODE.ORDER_CREATE_FAIL;
+        statusCode = 500;
+        errorMsg = '订单创建失败，请稍后重试';
+      }
+
+      res.status(statusCode).json({
+        code: errorCode,
+        msg: errorMsg,
+        data: null,
+        detail: null
+      });
+    }
+  }
+);
+
+module.exports = router;
+
+// ===== 标准函数: DbQuery =====
+async function DbQuery(tableName: string, conditions: Record<string, any>, options?: { transaction?: Transaction; lock?: string }): Promise<StandardResult<any[]>> {
+  if (!tableName || typeof tableName !== 'string') {
+    return { success: false, error: 'DbQuery: 表名不能为空' };
+  }
+  let connection: PoolConnection | null = null;
+  try {
+    if (options?.transaction) {
+      connection = options.transaction.connection;
+    } else {
+      connection = await mysqlPool.getConnection();
+    }
+    const keys = Object.keys(conditions || {});
+    const whereClause = keys.length ? `WHERE ${keys.map(k => `\`${k}\` = ?`).join(' AND ')}` : '';
+    const lockClause = options?.lock ? ` ${options.lock}` : '';
+    const values = keys.map(k => conditions[k]);
+    const [rows] = await connection.query(`SELECT * FROM \`${tableName}\` ${whereClause}${lockClause}`, values);
+    if (!options?.transaction && connection) {
+      connection.release();
+    }
+    return { success: true, data: rows as any[] };
+  } catch (err) {
+    if (connection && !options?.transaction) {
+      try { connection.release(); } catch {}
+    }
+    return { success: false, error: (err as Error).message };
+  }
+}
+
+// ===== 标准函数: DbExecute =====
+async function DbExecute(tableName: string, operation: 'insert' | 'update' | 'delete', data: Record<string, any>, conditions?: Record<string, any>, options?: { transaction?: Transaction }): Promise<StandardResult<ResultSetHeader>> {
+  if (!tableName || !operation || !['insert', 'update', 'delete'].includes(operation)) {
+    return { success: false, error: 'DbExecute: 无效参数' };
+  }
+  if (operation !== 'insert' && !data) {
+    return { success: false, error: 'DbExecute: 操作数据不能为空' };
+  }
+  let connection: PoolConnection | null = null;
+  try {
+    if (options?.transaction) {
+      connection = options.transaction.connection;
+    } else {
+      connection = await mysqlPool.getConnection();
+    }
+    let sql: string;
+    let values: any[];
+    if (operation === 'insert') {
+      const keys = Object.keys(data);
+      const placeholders = keys.map(k => {
+        if (typeof data[k] === 'function') {
+          return data[k]();
+        }
+        return '?';
+      });
+      sql = `INSERT INTO \`${tableName}\` (${keys.map(k => `\`${k}\``).join(', ')}) VALUES (${placeholders.join(', ')})`;
+      values = keys.filter(k => typeof data[k] !== 'function').map(k => data[k]);
+    } else if (operation === 'update') {
+      const setKeys = Object.keys(data);
+      const whereKeys = Object.keys(conditions || {});
+      const setClause = setKeys.map(k => {
+        if (typeof data[k] === 'function') {
+          return `\`${k}\` = ${data[k]()}`;
+        }
+        return `\`${k}\` = ?`;
+      }).join(', ');
+      const whereClause = whereKeys.length ? `WHERE ${whereKeys.map(k => `\`${k}\` = ?`).join(' AND ')}` : '';
+      sql = `UPDATE \`${tableName}\` SET ${setClause} ${whereClause}`;
+      values = [
+        ...setKeys.filter(k => typeof data[k] !== 'function').map(k => data[k]),
+        ...whereKeys.map(k => (conditions as Record<string, any>)[k])
+      ];
+    } else { // delete
+      const whereKeys = Object.keys(conditions || {});
+      const whereClause = whereKeys.length ? `WHERE ${whereKeys.map(k => `\`${k}\` = ?`).join(' AND ')}` : '';
+      sql = `DELETE FROM \`${tableName}\` ${whereClause}`;
+      values = whereKeys.map(k => (conditions as Record<string, any>)[k]);
+    }
+    const [result] = await connection.query(sql, values);
+    if (!options?.transaction && connection) {
+      connection.release();
+    }
+    return { success: true, data: result as ResultSetHeader };
+  } catch (err) {
+    if (connection && !options?.transaction) {
+      try { connection.release(); } catch {}
+    }
+    return { success: false, error: (err as Error).message };
+  }
+}
+
+// ===== 标准函数: BeginTransaction =====
+async function BeginTransaction(): Promise<StandardResult<Transaction>> {
+  try {
+    const connection = await mysqlPool.getConnection();
+    await connection.beginTransaction();
+    const transactionId = `tx_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+    return { success: true, data: { id: transactionId, connection } };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+}
+
+// ===== 标准函数: CommitTransaction =====
+async function CommitTransaction(transaction: Transaction): Promise<StandardResult> {
+  if (!transaction || !transaction.id || !transaction.connection) {
+    return { success: false, error: 'CommitTransaction: 无效事务对象' };
+  }
+  try {
+    await transaction.connection.commit();
+    transaction.connection.release();
+    return { success: true };
+  } catch (err) {
+    try { 
+      await transaction.connection.rollback();
+      transaction.connection.release();
+    } catch {}
+    return { success: false, error: (err as Error).message };
+  }
+}
+
+// ===== 标准函数: RollbackTransaction =====
+async function RollbackTransaction(transaction: Transaction): Promise<StandardResult> {
+  if (!transaction || !transaction.id || !transaction.connection) {
+    return { success: false, error: 'RollbackTransaction: 无效事务对象' };
+  }
+  try {
+    await transaction.connection.rollback();
+    transaction.connection.release();
+    return { success: true };
+  } catch (err) {
+    try { transaction.connection.release(); } catch {}
+    return { success: false, error: (err as Error).message };
+  }
+}
+
+// ===== 标准函数: CompensateBind =====
+async function CompensateBind(ctx: Express.Request['ctx'], opId: string, rollback: () => Promise<void>): Promise<StandardResult<{ bound: boolean; stackSize: number }>> {
+  if (!ctx || typeof ctx !== 'object' || typeof rollback !== 'function') {
+    return { success: false, error: 'CompensateBind: 无效参数' };
+  }
+  if (!ctx.shared) ctx.shared = {};
+  if (!ctx.shared.compensateStack) ctx.shared.compensateStack = [];
+  ctx.shared.compensateStack.push({
+    id: opId || `comp_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+    rollback: rollback,
+    executed: false,
+    boundAt: Date.now()
+  });
+  return { success: true, data: { bound: true, stackSize: ctx.shared.compensateStack.length } };
+}
+
+// ===== 标准函数: CompensateRun =====
+async function CompensateRun(ctx: Express.Request['ctx']): Promise<StandardResult> {
+  if (!ctx || typeof ctx !== 'object') {
+    return { success: false, error: 'CompensateRun: 无效上下文' };
+  }
+  if (!ctx.shared?.compensateStack || !Array.isArray(ctx.shared.compensateStack) || ctx.shared.compensateStack.length === 0) {
+    return { success: true, data: { executed: 0 } };
+  }
+  const stack = [...ctx.shared.compensateStack].reverse(); // 逆序执行补偿
+  let executed = 0;
+  for (const item of stack) {
+    if (item.executed) continue;
+    try {
+      await item.rollback();
+      item.executed = true;
+      executed++;
+    } catch (err) {
+      return { success: false, error: `补偿操作 ${item.id} 失败: ${(err as Error).message}` };
+    }
+  }
+  ctx.shared.compensateStack = [];
+  return { success: true, data: { executed } };
+}
+
+// ===== 标准函数: Retry =====
+async function Retry<T>(fn: () => Promise<T>, options: { maxRetries: number; backoffFactor: number; initialDelay: number }): Promise<StandardResult<T>> {
+  if (typeof fn !== 'function' || options.maxRetries < 0) {
+    return { success: false, error: 'Retry: 无效参数' };
+  }
+  let attempt = 0;
+  let lastError: Error | null = null;
+  while (attempt <= options.maxRetries) {
+    try {
+      const result = await fn();
+      return { success: true, data: result };
+    } catch (err) {
+      lastError = err as Error;
+      attempt++;
+      if (attempt > options.maxRetries) break;
+      const delay = Math.min(options.initialDelay * Math.pow(options.backoffFactor, attempt - 1), 1000);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  return { success: false, error: lastError?.message || `重试${options.maxRetries}次后仍然失败` };
+}
+
+// ===== 标准函数: IdempotentCheck =====
+async function IdempotentCheck(idempotentKey: string, ttl: number, autoCache: boolean): Promise<StandardResult<{ is_first: boolean; cachedResponse?: any }>> {
+  if (!idempotentKey || typeof idempotentKey !== 'string' || ttl < 0) {
+    return { success: false, error: 'IdempotentCheck: 无效参数' };
+  }
+  try {
+    const exists = await redis.get(idempotentKey);
+    if (exists) {
+      try {
+        const cachedData = JSON.parse(exists);
+        return { success: true, data: { is_first: false, cachedResponse: cachedData } };
+      } catch {
+        return { success: true, data: { is_first: false, cachedResponse: { status: 'SUCCESS' } } };
+      }
+    }
+    if (autoCache) {
+      await redis.set(idempotentKey, JSON.stringify({ status: 'PROCESSING', confirmed: false }), 'EX', ttl);
+    }
+    return { success: true, data: { is_first: true } };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+}
+
+// ===== 标准函数: IdempotentConfirm =====
+async function IdempotentConfirm(key: string): Promise<StandardResult<{ confirmed: boolean; existed: boolean }>> {
+  if (!key || typeof key !== 'string') {
+    return { success: false, error: 'IdempotentConfirm: 无效key' };
+  }
+  const getResult = await CacheGet(key);
+  if (!getResult.success) {
+    return { success: false, error: getResult.error };
+  }
+  const item = getResult.data;
+  if (!item) {
+    return { success: true, data: { confirmed: false, existed: false } };
+  }
+  if (item.confirmed === true) {
+    return { success: true, data: { confirmed: true, existed: true } };
+  }
+  const value = { ...item, confirmed: true };
+  const ttl = await redis.ttl(key);
+  const setResult = await CacheSet(key, value, ttl > 0 ? ttl : 3600);
+  if (!setResult.success) {
+    return { success: false, error: setResult.error };
+  }
+  return { success: true, data: { confirmed: true, existed: true } };
+}
+
+// ===== 标准函数: LockAcquire =====
+async function LockAcquire(lockKey: string, expireSeconds: number, retryTimes: number, isBlocking: boolean): Promise<StandardResult<{ locked: boolean; lockId?: string }>> {
+  if (!lockKey || typeof lockKey !== 'string' || expireSeconds < 1 || retryTimes < 0) {
+    return { success: false, error: 'LockAcquire: 无效参数' };
+  }
+  const lockId = `lock_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  let attempts = 0;
+  while (attempts <= retryTimes) {
+    try {
+      const result = await redis.set(lockKey, lockId, 'NX', 'EX', expireSeconds);
+      if (result === 'OK') {
+        return { success: true, data: { locked: true, lockId } };
+      }
+      if (!isBlocking) break;
+      await new Promise(resolve => setTimeout(resolve, 10));
+      attempts++;
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  }
+  return { success: true, data: { locked: false } };
+}
+
+// ===== 标准函数: LockRelease（使用Lua脚本校验lockId防误删） =====
+async function LockRelease(lockKey: string, lockId: string): Promise<StandardResult> {
+  if (!lockKey || !lockId || typeof lockKey !== 'string' || typeof lockId !== 'string') {
+    return { success: false, error: 'LockRelease: 无效参数' };
+  }
+  try {
+    const script = `
+      if redis.call('GET', KEYS[1]) == ARGV[1] then
+        return redis.call('DEL', KEYS[1])
+      else
+        return 0
+      end
+    `;
+    await redis.eval(script, 1, lockKey, lockId);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+}
+
+// ===== 标准函数: Log =====
+async function Log(content: any, userId: string | null | undefined, module: string, level: string, requestId: string | null | undefined, ip: string | null | undefined): Promise<void> {
+  try {
+    const formattedContent = (content !== null && typeof content === 'object') ? JSON.stringify(content) : String(content);
+    const logEntry = {
+      timestamp: new Date().toISOString(),
+      level: level || 'INFO',
+      module: module || 'unknown',
+      userId: userId || 'anonymous',
+      requestId: requestId || 'unknown',
+      ip: ip || '0.0.0.0',
+      content: formattedContent
+    };
+    console.log(JSON.stringify(logEntry));
+  } catch {}
+}
+
+// ===== 标准函数: LogError =====
+async function LogError(content: any, userId: string | null | undefined, module: string, level: string, requestId: string | null | undefined, ip: string | null | undefined): Promise<void> {
+  try {
+    const formattedContent = (content !== null && typeof content === 'object') ? JSON.stringify(content) : String(content);
+    const logEntry = {
+      timestamp: new Date().toISOString(),
+      level: 'ERROR',
+      module: module || 'unknown',
+      userId: userId || 'anonymous',
+      requestId: requestId || 'unknown',
+      ip: ip || '0.0.0.0',
+      content: formattedContent
+    };
+    console.error(JSON.stringify(logEntry));
+  } catch {}
+}
+
+// ===== 标准函数: checkTimeout =====
+function checkTimeout(ctx: Express.Request['ctx']): boolean {
+  if (!ctx.deadline) return false;
+  const isTimeout = Date.now() > ctx.deadline;
+  if (isTimeout) {
+    ctx.temp.success = false;
+    ctx.temp.fail_reason = '请求超时';
+  }
+  return isTimeout;
+}
+
+// ===== 标准函数: CacheGet =====
+async function CacheGet(key: string): Promise<StandardResult<any>> {
+  if (!key || typeof key !== 'string') {
+    return { success: false, error: 'CacheGet: 无效key' };
+  }
+  try {
+    const value = await redis.get(key);
+    if (!value) return { success: true, data: null };
+    try {
+      return { success: true, data: JSON.parse(value) };
+    } catch {
+      return { success: true, data: value };
+    }
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+}
+
+// ===== 标准函数: CacheSet =====
+async function CacheSet(key: string, value: any, ttl: number | null): Promise<StandardResult> {
+  if (!key || typeof key !== 'string') {
+    return { success: false, error: 'CacheSet: 无效key' };
+  }
+  try {
+    const serialized = typeof value === 'string' ? value : JSON.stringify(value);
+    if (ttl && ttl > 0) {
+      await redis.set(key, serialized, 'EX', ttl);
+    } else {
+      await redis.set(key, serialized);
+    }
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+}
+
+// ===== 标准函数: SafeJsonStringify =====
+async function SafeJsonStringify(obj: any, pretty: boolean): Promise<StandardResult<string>> {
+  try {
+    const str = pretty ? JSON.stringify(obj, null, 2) : JSON.stringify(obj);
+    return { success: true, data: str };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+}
+
+// ===== 标准函数: ValidateParams =====
+async function ValidateParams(params: Record<string, any>, rules: ValidationRules): Promise<StandardResult<{ validated: SeckillRequest; errors: string[] }>> {
+  if (!params || !rules || typeof params !== 'object' || typeof rules !== 'object') {
+    return { success: false, error: 'ValidateParams: 无效参数' };
+  }
+  try {
+    const errors: string[] = [];
+    const validated: Partial<SeckillRequest> = {};
+    for (const [key, rule] of Object.entries(rules)) {
+      const value = params[key];
+      if (rule.required && (value === undefined || value === null || (typeof value === 'string' && value.trim() === ''))) {
+        errors.push(`${key}不能为空`);
+        continue;
+      }
+      if (value !== undefined && value !== null) {
+        if (rule.type === 'string') {
+          if (typeof value !== 'string') {
+            errors.push(`${key}必须为字符串`);
+            continue;
+          }
+          const trimmedValue = value.trim();
+          if (rule.min !== undefined && trimmedValue.length < rule.min) {
+            errors.push(`${key}长度不能少于${rule.min}位`);
+          }
+          if (rule.max !== undefined && trimmedValue.length > rule.max) {
+            errors.push(`${key}长度不能超过${rule.max}位`);
+          }
+          validated[key as keyof SeckillRequest] = trimmedValue as any;
+        } else if (rule.type === 'number') {
+          if (typeof value !== 'number' || isNaN(value)) {
+            errors.push(`${key}必须为数字`);
+            continue;
+          }
+          if (rule.min !== undefined && value < rule.min) {
+            errors.push(`${key}不能小于${rule.min}`);
+          }
+          if (rule.max !== undefined && value > rule.max) {
+            errors.push(`${key}不能大于${rule.max}`);
+          }
+          if (!Number.isInteger(value)) {
+            errors.push(`${key}必须为整数`);
+          }
+          validated[key as keyof SeckillRequest] = value as any;
+        }
+      }
+    }
+    if (errors.length > 0) {
+      return { success: false, data: { errors } as any };
+    }
+    return { success: true, data: { validated: validated as SeckillRequest, errors: [] } };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+}
