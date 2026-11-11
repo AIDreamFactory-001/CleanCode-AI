@@ -49,7 +49,7 @@
 ************************************************************************
 👉 **[🎬 点击观看 CleanCode AI 实操演示（B站无广告高清版）](https://www.bilibili.com/video/BV1aZWy6yEZy/?vd_source=50d1e0add1703333cb5e959d33674b3f)**
 
-👉  **[立即体验 CleanCode AI 智能体TS语言版（扣子平台）] (https://www.coze.cn/s/Nl7Dssr-aV0/)**
+👉  **[立即体验 CleanCode AI 智能体TS语言版（扣子平台）](https://www.coze.cn/s/Nl7Dssr-aV0/)**
 ************************************************************************
 其他语言将陆续发布，敬请关注
 
