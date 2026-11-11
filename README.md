@@ -93,6 +93,8 @@
 
  **终稿下载：** [查看文档](https://gitee.com/song-jianhua8/cleancode-ai-agent/blob/master/%E7%BB%88%E7%A8%BF.txt)
 
+ **示例2下载：**  [查看文档](https://gitee.com/song-jianhua8/cleancode-ai-agent/blob/master/%E7%A4%BA%E4%BE%8B2.txt)
+
 --------------------------------------------------------------------------------
 📚  **核心规范** 
 
